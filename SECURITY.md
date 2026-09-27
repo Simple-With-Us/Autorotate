@@ -22,8 +22,9 @@ disclosure.
 
 ## Credential storage boundaries
 
-Keep secret material out of logs, crash reports, analytics, error messages,
-and git history.  Store application-managed credentials encrypted at rest
+Do not persist plaintext secrets in databases, disk caches, configuration,
+or other general-purpose storage.  Keep secret material out of logs, crash
+reports, analytics, error messages, and git history.  Store application-managed credentials encrypted at rest
 or in the platform credential store; web database credentials are encrypted
 with `AUTOROTATE_ENC_KEY`.
 

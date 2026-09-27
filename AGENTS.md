@@ -97,10 +97,12 @@ interface listed below. Never "drive-by" edit another module.
 
 ## Hard invariants (violations = automatic rejection)
 
-1. **Protect secret material** — do not expose it in logs, crash reports,
-   error messages, git history, or unencrypted configuration storage.  File
-   targets intentionally write secrets to their configured destinations;
-   preserve the intended permissions and avoid additional plaintext copies.
+1. **Protect secret material** — do not persist plaintext secrets in databases,
+   disk caches, configuration, or other general-purpose storage, or expose
+   them in logs, crash reports, error messages, or git history.  Explicitly
+   configured file targets are the narrow exception: preserve destination
+   permissions, protect backups, clean up replacement temporary files, and
+   do not create diagnostic dumps or unrelated plaintext copies.
 2. **Audit chain stays append-only and hash-chained** — never update or
    delete existing audit records; corrections are new appended entries.
 3. **The connector capability matrix in `docs/architecture.md` is the source
