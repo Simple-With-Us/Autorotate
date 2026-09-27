@@ -3,85 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Autorotate · Autorotate.Codes</title>
-  <meta name="description" content="Autorotate is a multi-platform, zero-plaintext secret-rotation lifecycle engine for Infisical, files, the Apple Keychain, the Android Keystore, and HTTPS webhooks.">
+  <title>Autorotate — Credential Rotation Tools</title>
+  <meta name="description" content="Configure credential rotation, deliver updated values to selected targets, and review the results with Autorotate.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header>
-    <span class="wordmark">Autorotate</span>
-    <span class="domain">Autorotate.Codes</span>
+    <a class="app-identity" href="#main"><img src="assets/autorotate.png" width="40" height="40" alt=""><span class="wordmark">Autorotate</span></a>
   </header>
 
-  <main>
+  <main id="main">
     <section class="hero">
-      <h1>Secret Rotation That Never Persists Plaintext</h1>
+      <h1>Manage Credential Rotation And Delivery</h1>
       <p class="lede">
-        Autorotate is a multi-platform, zero-plaintext secret-rotation lifecycle engine: a web control center plus native iOS, macOS, and Android companion apps that keep credentials fresh across Infisical, files, the Apple Keychain, the Android Keystore, and generic HTTPS webhooks.  Secret material exists only in memory during a rotation and is never written to disk, logs, or the database unencrypted.
+        Configure supported providers, send updated credentials to selected targets, and review each run.&#160; This repository includes a web control center and native Apple and Android clients; connector support varies by provider and platform.
       </p>
       <div class="cta">
-        <a class="btn btn-primary" href="https://github.com/jaywedgeworth22/Autorotate">View On GitHub</a>
-        <a class="btn btn-secondary" href="https://github.com/jaywedgeworth22/Autorotate/blob/main/docs/architecture.md">Read The Architecture</a>
+        <a class="btn btn-primary" href="https://testflight.apple.com/join/5yDXA8Vk">Try The macOS Beta</a>
+        <a class="btn btn-secondary" href="https://github.com/jaywedgeworth22/Autorotate">View Source</a>
       </div>
-      <p class="note">The companion apps are built from source today; packaged releases are not published yet.</p>
+      <p class="note">The current iOS release is being prepared.&#160; The web control center and Android client can be built from source; see <a href="https://simplewithus.com/autorotate/">current app access</a> for available downloads.</p>
     </section>
 
     <section class="pipeline">
       <h2>How A Rotation Works</h2>
-      <p>Every rotation runs the same strict state machine, in order.</p>
+      <p>A rotation coordinates these steps, with behavior depending on the connector and target.</p>
       <ol class="stages">
         <li>
           <span class="stage-name">Lock</span>
-          <span class="stage-desc">Acquire a per-secret lock so no other run starts while one is already in progress.</span>
+          <span class="stage-desc">Acquire a lock for the credential being rotated.</span>
         </li>
         <li>
           <span class="stage-name">Rotate</span>
-          <span class="stage-desc">The connector produces a new value for the credential.</span>
+          <span class="stage-desc">Obtain a value through a supported provider API, local generator, or manual import.</span>
         </li>
         <li>
           <span class="stage-name">Push</span>
-          <span class="stage-desc">The new value is written to every enabled target — Infisical, a file, the Apple Keychain, the Android Keystore, or a webhook.</span>
+          <span class="stage-desc">Deliver the value to configured targets, such as Infisical, a file, a native credential store, or an HTTPS webhook.</span>
         </li>
         <li>
           <span class="stage-name">Verify</span>
-          <span class="stage-desc">An optional read-back confirms the new value landed correctly.</span>
+          <span class="stage-desc">Check delivery where the connector supports verification.</span>
         </li>
         <li>
           <span class="stage-name">Commit</span>
-          <span class="stage-desc">Once every required target succeeds, the secret record updates to the new version.</span>
+          <span class="stage-desc">Record the updated version after the required workflow steps succeed.</span>
         </li>
         <li>
           <span class="stage-name">Audit</span>
-          <span class="stage-desc">A hash-chained record is appended, so the rotation history stays tamper-evident.</span>
+          <span class="stage-desc">Append a run record to the hash-chained audit history.</span>
         </li>
       </ol>
-      <p class="note">Any failure aborts and rolls back before new material is committed.</p>
+      <p class="note">Failed or partial delivery may need operator follow-up.&#160; Providers and targets do not share a universal rollback operation.</p>
     </section>
 
     <section class="targets">
-      <h2>What It Rotates</h2>
-      <p>Autorotate keeps credentials fresh across five kinds of targets.</p>
+      <h2>Where Credentials Can Go</h2>
+      <p>Available targets include the following; support varies by client and connector.</p>
       <ul class="target-list">
         <li>Infisical projects</li>
-        <li>Local and remote files</li>
+        <li>Configured files</li>
         <li>Apple Keychain</li>
         <li>Android Keystore</li>
         <li>Generic HTTPS webhooks</li>
       </ul>
     </section>
 
-    <section class="zero-plaintext">
-      <h2>Zero Plaintext</h2>
+    <section class="credential-handling">
+      <h2>Credential Handling</h2>
       <p>
-        Secret material exists only in memory for the duration of a rotation run — it is never written to disk, logs, or the database unencrypted.  Every run also appends a hash-chained audit record, so the rotation history is tamper-evident.
+        Autorotate uses encrypted configuration and native credential stores where implemented.&#160; A configured file target writes a credential to that file, so its permissions and backups still matter.&#160; See the <a href="https://github.com/jaywedgeworth22/Autorotate/blob/main/docs/architecture.md">connector capability matrix</a> for details.
       </p>
     </section>
   </main>
 
   <footer>
-    <p class="wordmark-foot">Autorotate · <a href="https://autorotate.codes">Autorotate.Codes</a></p>
+    <p class="wordmark-foot">Autorotate</p>
+    <p><a class="swu-link" href="https://simplewithus.com/" aria-label="Explore more apps from Simple With Us"><img src="assets/swu-wordmark.webp" width="288" height="30" alt="Simple With Us"></a></p>
     <p>
-      Open source under the <a href="https://github.com/jaywedgeworth22/Autorotate/blob/main/LICENSE">Apache License 2.0</a>, version 1.0.0.  See the <a href="https://github.com/jaywedgeworth22/Autorotate/blob/main/SECURITY.md">security policy</a> for the zero-plaintext and audit-chain design.
+      Open source under the <a href="https://github.com/jaywedgeworth22/Autorotate/blob/main/LICENSE">Apache License 2.0</a>.&#160; Read the <a href="https://github.com/jaywedgeworth22/Autorotate/blob/main/SECURITY.md">security policy</a> for credential-handling and audit requirements.
     </p>
     <p><a href="https://github.com/jaywedgeworth22/Autorotate">github.com/jaywedgeworth22/Autorotate</a></p>
   </footer>

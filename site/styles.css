@@ -11,18 +11,6 @@
   --max-width: 780px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #12151c;
-    --color-bg-alt: #1a1f2a;
-    --color-text: #e7ebf2;
-    --color-text-muted: #a7b0c0;
-    --color-border: #2a3140;
-    --color-accent: #6ea2ff;
-    --color-accent-contrast: #0b0e14;
-    --color-focus: #6ea2ff;
-  }
-}
 
 * {
   box-sizing: border-box;
@@ -66,10 +54,28 @@ header {
   letter-spacing: 0.01em;
 }
 
-/* The site's own address, shown the way its owner writes it. */
-.domain {
-  color: var(--color-text-muted);
-  font-size: 0.95rem;
+.app-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.app-identity img {
+  object-fit: contain;
+}
+
+.swu-link {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.swu-link img {
+  width: 288px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 main {

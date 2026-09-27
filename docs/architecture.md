@@ -63,7 +63,7 @@ rotate(secretId):
 | Extra catalog (Grok) | ⚠️ update-only or local generate | HashiCorp Vault, Doppler, 1Password Connect, xAI, Groq, Google AI, GitLab, Bitbucket, GCP, Azure, Netlify, Railway, Render API token (credential target only — this fleet does not host on Render), Fly.io, DigitalOcean, Coolify, Heroku, Discord, Mailgun, Postmark, Supabase, PlanetScale, MongoDB Atlas, FMP, SSH import, App Store Connect, Linear, Notion |
 | Local generators | ✅ | JWT signing key, database password, webhook HMAC, generic secret (CSPRNG, then PUSH) |
 
-The Grok App Builder snapshot catalogs 40+ platforms (xAI, Groq, Anthropic, Coolify, FMP, App Store Connect, …) with live / generate / console rotation kinds. Native iOS, macOS, and Android apps keep the shared zero-plaintext engine.
+The Grok App Builder snapshot catalogs 40+ platforms (xAI, Groq, Anthropic, Coolify, FMP, App Store Connect, …) with live / generate / console rotation kinds. Native Apple and Android clients implement rotation and delivery with platform-specific credential stores.
 
 ## 4. Infisical integration
 
@@ -83,9 +83,12 @@ The Grok App Builder snapshot catalogs 40+ platforms (xAI, Groq, Anthropic, Cool
 
 ## 6. Storage rule (hard requirement)
 
-Plaintext secret values exist only in memory during a rotation run. Persistent stores hold
-metadata + references. The ONLY places values land: the provider, Infisical, target files,
-Keychain, Keystore. Audit logs contain `sha256(value)[0:16]` fingerprints only.
+Secret records retain metadata and references rather than plaintext values.  Application-managed
+credential storage uses native credential stores or encryption at rest; plaintext does not belong
+in databases, disk caches, logs, or other general-purpose storage.  Explicitly configured file
+targets are the narrow filesystem exception described in [SECURITY.md](../SECURITY.md).
+Providers, Infisical, native credential stores, and configured HTTPS webhooks receive values
+as part of delivery.  Audit entries use `sha256(value)[0:16]` fingerprints rather than secret values.
 
 **Fingerprint length: 16 hex characters** (64 bits of the SHA-256 digest), identical on every
 platform — `Fingerprint.prefixLength` in AutorotateCore and `fingerprint()` in
