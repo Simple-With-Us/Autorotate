@@ -10,6 +10,8 @@ touching any code.
 GitHub: `jaywedgeworth22/Autorotate` (public, transitioning to `Autorotate`). Integration tree:
 `/Users/jay/Code/Autorotate`. Slack `repo:` name: **`Autorotate`** (or `Autorotate`). Acronym: **`AR`** (legacy `TS`).
 
+Hosting and routing (apexes, hostnames, hosts, deploy paths): see [`Fleet-OPS/docs/DOMAINS-AND-ROUTING.md`](https://github.com/jaywedgeworth22/Fleet-OPS/blob/main/docs/DOMAINS-AND-ROUTING.md). Built from live Cloudflare, Vercel, Coolify, Namecheap/RDAP, and GitHub APIs by CLAUDE on 2026-09-25; refresh via `Fleet-OPS/scripts/domain-inventory/run-all.sh`.
+
 ## Inter-agent coordination
 
 Look first at THE BOARD (`https://mac.jays.services/board`).  Coordinate in
