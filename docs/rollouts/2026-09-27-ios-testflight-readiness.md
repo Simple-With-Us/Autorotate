@@ -2,8 +2,8 @@
 
 The owner authorized external iOS testing.  The current iOS source bundle is
 `codes.autorotate.ios`; the existing public TestFlight app with bundle
-`codes.autorotate` is a legacy build and remains untouched.  No current-bundle
-App Store Connect app, uploaded build, or public invite exists yet.
+`codes.autorotate` is a legacy build and remains untouched.  The current-bundle
+App Store Connect app now exists; no build or public invite has been published for it.
 
 ## Apple Developer state
 
@@ -25,10 +25,11 @@ App Store Connect app, uploaded build, or public invite exists yet.
   its first current-bundle build.  The macOS target retains its separate
   inherited version and bundle ID.  Keep the iOS build number monotonic on
   subsequent uploads.
-- Create a new iOS App Store Connect app record in the authenticated website
-  with bundle `codes.autorotate.ios`, primary locale `en-US`, and a unique SKU
-  such as `autorotate-ios`.  Apple's public Apps API cannot create new apps.
-  Check name availability in the form before choosing final display metadata.
+- App Store Connect app **Autorotate**, ID `6816633326`, was created and
+  verified on its saved app page in the owner-authenticated website.  It uses
+  bundle `codes.autorotate.ios`, primary locale `en-US`, and SKU `autorotate-ios`.
+  User access is limited to existing account roles.  This resolves the app-record
+  gate; it does not establish signing, an uploaded build, or external beta approval.
 - The existing `.github/workflows/testflight.yml` uses direct secret
   environment injection.  Do not dispatch it with the current signing key.
   Replace its credential handling with the fleet-approved file-loading path,
