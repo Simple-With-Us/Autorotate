@@ -1,5 +1,3 @@
-- **2026-09-27 — CODEX — Completed on merge — Public overview accuracy (issue #261, board `1a63f9b2`, branch `codex/public-copy-20260927`).**  Scope: public README and coordination pointers; clarify supported behavior and access, remove private inventory references, and link the Simple With Us app catalog.  Validation: scoped copy/source review, linked-file checks, and `git diff --check`; hosted CI gates this merge.  Runtime and release workflows unchanged.
-
 # Autorotate Effort Log — cross-agent board
 Protocol: /Users/jay/apps/EFFORT-LOG-PROTOCOL.md (canonical). Live board: this file
 (mirror: docs/EFFORT-LOG.md in the repo). As of 2026-08-25.
@@ -20,6 +18,8 @@ Protocol: /Users/jay/apps/EFFORT-LOG-PROTOCOL.md (canonical). Live board: this f
 - (none)
 
 ## Completed
+
+- **2026-09-27 — CODEX — Completed on merge — Public overview accuracy (issue #261, board `1a63f9b2`, branch `codex/public-copy-20260927`).**  Scope: public README and coordination pointers; clarify supported behavior and access, remove private inventory references, and link the Simple With Us app catalog.  Validation: scoped copy/source review, linked-file checks, and `git diff --check`; hosted CI gates this merge.  Runtime and release workflows unchanged.
 - **2026-09-16 - CLAUDE - COMPLETED - Encrypt target configJson at rest (Infisical clientSecret, webhook auth headers) — invariant-1 plaintext exposure.** PR #212 (`claude/encrypt-target-config-at-rest`, merged): new `targets.configEnc` (AES-256-GCM, same pattern as `connectors.configEnc`) + `readTargetConfig()` accessor + idempotent backfill script `db/migrate-target-config-encryption.ts` (`npm run db:migrate-target-encryption`, run once per environment post-deploy). Same PR also fixed the missing `permissions:` block on `auto-update-prs.yml` (Sentry FLEET-INFRA-C5, root cause 1 of 2). Board `b052d650` marked completed. <!-- wb-agent-report:b052d650a60c4451a316fe17f7c70a9f -->
 - **2026-09-16 - CLAUDE - COMPLETED - Fix Auto Update PRs CI, root cause 2 of 2 (Sentry FLEET-INFRA-C5).** The `permissions:` fix (PR #212) landed but the very next run still failed: `.github/workflows/auto-update-prs.yml` was pinned to `chinthakagodawita/autoupdate@v1.22.0`, which was never a real release of that action (latest real tag is `v1.7.0`) — Actions couldn't even resolve it. PR #214 (`claude/fix-autoupdate-action-version`, auto-merge armed) pins to `v1.7.0`.
 - **2026-09-13 — AG — COMPLETED/MERGED #189 — Make Sentry bug reporter subtle (autoInject false + footer/nav trigger) (board `87c80482`, branch `ag/sentry-subtle-feedback`).**  Set `autoInject: false` in `apps/web/src/lib/sentry.ts` to eliminate floating action button.  Exported `openSentryFeedback()` helper and wired subtle links into AppShell sidebar and landing Footer.
