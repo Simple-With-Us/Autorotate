@@ -31,7 +31,9 @@ is a separate release prerequisite.
 - `ios-stage-asc-key.sh` creates a unique mode-700 temporary directory and mode-600
   key file from stdin; only its path crosses the Actions step boundary.
 - `ios-appstore-gm-prepare.sh` imports the distribution identity into a temporary
-  keychain, with tracing disabled and a restrictive umask.
+  keychain, with tracing disabled and a restrictive umask.  P12/password remain
+  scoped to the load/import step; the decoded P12 is removed after import.
+  Multiline scalar values are rejected before masking or output.
 - `apple-testflight-release.sh` chooses one scheme, archives with the requested
   build number and calls `validate-apple-release-archive.py` before upload.
 - The validator rejects a wrong bundle/build, mismatched profile app/team, and
@@ -49,6 +51,8 @@ those files are not product data, workflow artifacts or checked-in credentials.
 
 `bash scripts/test-ios-stage-asc-key.sh` passed using a fake Infisical CLI through
 the actual workflow block; no PEM reached stdout, stderr or GITHUB_ENV.
+A multiline-P12 regression also rejects continuation text before mask output,
+and certificate credentials are absent from GITHUB_ENV.
 `python3 scripts/test-apple-release.py` passed nine tests for iOS/macOS target
 metadata, retired bundle rejection, build/profile/team/App Group checks and
 manual input validation.  Shell syntax and diff checks passed.  Both tests run in
