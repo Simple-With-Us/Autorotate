@@ -24,12 +24,20 @@ run() {
 }
 run
 [[ ! -e "$tmp/home/.secrets/AuthKey.p8" ]]
-[[ "$(find "$tmp/runner" -type f | wc -l | tr -d ' ')" == 1 ]]
+# The only intentional leftover is the keychain password file.  Count
+# signing material explicitly rather than every file, since macOS scatters
+# .DS_Store through any directory it has visited.
+no_staged_files() {
+  ! find "$tmp/runner" -type f \
+      \( -name 'autorotate-asc-key.*' -o -name 'autorotate-asc-env.*' \
+         -o -name 'autorotate-ios-dist.*' \) -print -quit | grep -q .
+}
 [[ -f "$tmp/runner/app-signing-kc-pass" ]]
+no_staged_files
 [[ "$(find "$tmp/runner" -type d -name 'autorotate-asc-key.*' | wc -l | tr -d ' ')" == 0 ]]
 if run 1; then echo 'expected synthetic import failure' >&2; exit 1; fi
-[[ "$(find "$tmp/runner" -type f | wc -l | tr -d ' ')" == 1 ]]
-[[ "$(find "$tmp/runner" -type d -name 'autorotate-asc-key.*' | wc -l | tr -d ' ')" == 0 ]]
+[[ -f "$tmp/runner/app-signing-kc-pass" ]]
+no_staged_files
 if grep -Fq synthetic-private-key "$tmp/out" "$tmp/err"; then
   echo 'synthetic key leaked to output' >&2; exit 1
 fi

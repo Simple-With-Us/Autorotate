@@ -39,7 +39,13 @@ trap cleanup_signing_files EXIT
 if [[ -n "${ASC_KEY_PATH:-}" ]]; then
   KEY_PATH="$ASC_KEY_PATH"
   [[ -s "$KEY_PATH" ]] || die "ASC_KEY_PATH has no key file"
-  [[ "$(stat -f '%Lp' "$KEY_PATH")" == 600 ]] || die "ASC_KEY_PATH must be mode 600"
+  # stat -f is BSD; GNU stat uses -c.  Release runs on macOS, tests do not.
+  if [[ "$(uname -s)" == Darwin ]]; then
+    key_mode="$(stat -f '%Lp' "$KEY_PATH")"
+  else
+    key_mode="$(stat -c '%a' "$KEY_PATH")"
+  fi
+  [[ "$key_mode" == 600 ]] || die "ASC_KEY_PATH must be mode 600"
 else
   STAGED_KEY_DIR="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/autorotate-asc-key.XXXXXXXX")"
   chmod 700 "$STAGED_KEY_DIR"
@@ -48,9 +54,15 @@ else
 fi
 if [[ -n "$STAGED_KEY_DIR" ]]; then chmod 600 "$KEY_PATH"; fi
 
+# mktemp only substitutes a trailing run of X's, so build a unique name first
+# and add the suffix afterwards.  A literal "XXXXXXXX.p12" template yields the
+# same predictable name on every run and is rejected outright by GNU mktemp.
+tmp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+unique_file() { local t; t="$(mktemp "${tmp_root%/}/$1.XXXXXXXX")"; mv "$t" "$t$2"; printf '%s\n' "$t$2"; }
+
 # Keep local credentials in the temporary handoff. The caller-owned file
 # path is never removed, but this env file is owned by this invocation.
-ENV_PATH="$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/autorotate-asc-env.XXXXXXXX")"
+ENV_PATH="$(unique_file autorotate-asc-env '')"
 {
   printf 'ASC_KEY_ID=%s\n' "$ASC_KEY_ID"
   printf 'ASC_ISSUER_ID=%s\n' "$ASC_ISSUER_ID"
@@ -58,11 +70,11 @@ ENV_PATH="$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/autorotate-asc-env.XXXXXXXX"
 } > "$ENV_PATH"
 chmod 600 "$ENV_PATH"
 
-P12_PATH="$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/autorotate-ios-dist.XXXXXXXX.p12")"
+P12_PATH="$(unique_file autorotate-ios-dist .p12)"
 printf '%s' "$IOS_DIST_P12_BASE64" | base64 --decode > "$P12_PATH"
 chmod 600 "$P12_PATH"
 
-KC_DIR="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+KC_DIR="$tmp_root"
 KC_PATH="${KC_DIR}/app-signing.keychain-db"
 KC_PASS_FILE="${KC_DIR}/app-signing-kc-pass"
 openssl rand -base64 24 > "$KC_PASS_FILE"

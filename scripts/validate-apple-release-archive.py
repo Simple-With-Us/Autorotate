@@ -23,8 +23,12 @@ def validate(archive, platform, bundle, build):
         raise ValueError('Embedded profile does not match the selected app and team.')
     if GROUP not in entitlements.get('com.apple.security.application-groups', []):
         raise ValueError('Embedded profile is missing the required Autorotate App Group.')
+    # '- --xml' writes the entitlements plist to stdout as XML.  Without
+    # --xml codesign emits the legacy NeXTSTEP "[Dict]" text, which
+    # plistlib.loads() rejects with InvalidFileException.  The older ':-'
+    # spelling also emits XML today but is deprecated and warns on stderr.
     signed = plistlib.loads(subprocess.check_output(
-        ['codesign', '-d', '--entitlements', ':-', str(app)], stderr=subprocess.DEVNULL))
+        ['codesign', '-d', '--entitlements', '-', '--xml', str(app)], stderr=subprocess.DEVNULL))
     if GROUP not in signed.get('com.apple.security.application-groups', []):
         raise ValueError('Signed app is missing the required Autorotate App Group.')
 
