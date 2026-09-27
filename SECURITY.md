@@ -17,32 +17,34 @@ Include:
 - any suggested remediation.
 
 We aim to acknowledge reports within 72 hours and coordinate disclosure with
-the reporter. Please give us reasonable time to ship a fix before public
+the reporter.  Please give us reasonable time to ship a fix before public
 disclosure.
 
-## Hard security invariant: zero-plaintext storage
+## Credential storage boundaries
 
-Secret material must **never** be persisted in plaintext:
+Do not persist plaintext secrets in databases, disk caches, configuration,
+or other general-purpose storage.  Keep secret material out of logs, crash
+reports, analytics, error messages, and git history.  Store application-managed credentials encrypted at rest
+or in the platform credential store; web database credentials are encrypted
+with `AUTOROTATE_ENC_KEY`.
 
-- not in the database (credentials are encrypted with `AUTOROTATE_ENC_KEY`
-  before storage),
-- not on disk (file targets receive secrets only through the rotation
-  pipeline, never intermediate dumps),
-- not in logs, crash reports, analytics, or error messages,
-- not in git history — never commit a real `.env`, key file, or export.
+Configured file targets are an intentional exception: they write a credential
+to the destination the operator selects.  Preserve the target's access
+permissions, protect backups, and clean up temporary files used during
+replacement.  This exception does not permit diagnostic dumps or unrelated
+plaintext copies.
 
-Secret material lives only in memory for the duration of a rotation
-(`LOCK → ROTATE → PUSH → VERIFY → COMMIT → AUDIT`) and buffers are cleared
-after use. Any PR that weakens this invariant will be rejected regardless of
-other merits.
+Minimize the time secrets remain in memory and avoid unnecessary copies.
+Changes must preserve these boundaries and the append-only audit history.
 
 ## Credential handling rules
 
 - Use `apps/web/.env.example` placeholders locally; real values go only in
   untracked `.env` files.
 - Never hard-code tokens, connection strings, or encryption keys in source.
-- On Apple platforms, credentials belong in the Keychain (shared access
-  group `com.autorotate.shared`), never in `UserDefaults` or plain files.
+- On Apple platforms, application-managed credentials belong in the Keychain
+  (shared access group `codes.autorotate.shared`), not `UserDefaults`.  Explicitly
+  configured file targets remain subject to the file-handling rules above.
 - Webhook targets must use HTTPS; never disable certificate validation.
 - Rotate any credential immediately if you suspect it entered logs, git
   history, or a ticket.
@@ -50,5 +52,5 @@ other merits.
 ## Audit chain
 
 Rotation audit records are append-only and hash-chained to make history
-tamper-evident. Code must never update or delete existing audit entries;
+tamper-evident.  Code must never update or delete existing audit entries;
 corrections are new appended records.
