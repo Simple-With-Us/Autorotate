@@ -21,3 +21,6 @@ coverage/
 # Logs
 *.log
 autorotate-files/
+# Playwright E2E artifacts (local runs only; baselines in e2e/*-snapshots/ are committed)
+test-results/
+playwright-report/
