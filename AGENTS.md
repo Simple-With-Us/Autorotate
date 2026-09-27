@@ -127,6 +127,10 @@ interface listed below. Never "drive-by" edit another module.
    persisted" and "audit-chain integrity preserved" are mandatory, not
    advisory.
 
+## UI verification policy (owner directive 2026-09-27)
+
+UI changes must be covered by automated visual verification where feasible: Playwright screenshot assertions for web surfaces, `xcrun simctl io booted screenshot` for iOS simulator. The owner never takes manual screenshots and does not run local UI preview sessions. Native Mac app UI is verified through code review and CI.
+
 ## Interfaces between modules
 
 - **tRPC contracts** — `apps/web/contracts/` defines the typed API surface
