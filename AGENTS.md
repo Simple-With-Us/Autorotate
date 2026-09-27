@@ -10,7 +10,7 @@ touching any code.
 GitHub: `jaywedgeworth22/Autorotate` (public, transitioning to `Autorotate`). Integration tree:
 `/Users/jay/Code/Autorotate`. Slack `repo:` name: **`Autorotate`** (or `Autorotate`). Acronym: **`AR`** (legacy `TS`).
 
-Hosting and routing (apexes, hostnames, hosts, deploy paths): see [`Fleet-OPS/docs/DOMAINS-AND-ROUTING.md`](https://github.com/jaywedgeworth22/Fleet-OPS/blob/main/docs/DOMAINS-AND-ROUTING.md). Built from live Cloudflare, Vercel, Coolify, Namecheap/RDAP, and GitHub APIs by CLAUDE on 2026-09-25; refresh via `Fleet-OPS/scripts/domain-inventory/run-all.sh`.
+Hosting and routing: consult the private operations inventory outside this public repository.  Public app access is listed at https://simplewithus.com/autorotate/.
 
 ## Inter-agent coordination
 
@@ -39,8 +39,7 @@ All icon assets and design explorations must be generated as standard, uncropped
 ## Private Infrastructure Hub & Secrets (Binding for all agents)
 
 This repository is **public**. Do **not** commit host IPs, Tailscale IPs, Coolify container/server UUIDs, hardware serials, or secret values here.
-- **Canonical private infrastructure inventory:** `jaywedgeworth22/fleet-ops:ATTACK-MAP.md` (local clone at `/Users/jay/Code/fleet-ops/ATTACK-MAP.md`).
-- **Cloud agents without direct repo access:** Request via `GET https://mac.jays.services/files/ATTACK-MAP.md` with `MAC_COLLAB_TOKEN`.
+- **Private infrastructure inventory:** use the authorized operations workspace; keep its contents and access details out of public source.
 - **Secret handoff:** Read secrets from `~/.secrets/global-api-keys` or Infisical. Never log or grep raw `KEY=value` lines.
 
 ## Before you start
@@ -75,7 +74,7 @@ git -C /Users/jay/Code/Autorotate worktree add -b <prefix>/<slug> ~/apps/autorot
 
 ## Mission
 
-Autorotate (`autorotate.codes`) rotates secrets across platforms without ever persisting plaintext.
+Autorotate coordinates credential rotation and delivery for supported connectors and configured targets.  Protect secret values according to the storage requirements below; file targets intentionally write values to their configured destinations.
 Agents working here extend the web control center, the Apple companion apps, the Android companion app,
 and the shared AutorotateCore engine **without weakening the security
 invariants**. When a task and an invariant conflict, the invariant wins —
@@ -98,9 +97,10 @@ interface listed below. Never "drive-by" edit another module.
 
 ## Hard invariants (violations = automatic rejection)
 
-1. **NEVER persist plaintext secrets** — not to the DB, disk, logs, crash
-   reports, error messages, or git history. Secret material lives in memory
-   only for the duration of a rotation; clear buffers after use.
+1. **Protect secret material** — do not expose it in logs, crash reports,
+   error messages, git history, or unencrypted configuration storage.  File
+   targets intentionally write secrets to their configured destinations;
+   preserve the intended permissions and avoid additional plaintext copies.
 2. **Audit chain stays append-only and hash-chained** — never update or
    delete existing audit records; corrections are new appended entries.
 3. **The connector capability matrix in `docs/architecture.md` is the source

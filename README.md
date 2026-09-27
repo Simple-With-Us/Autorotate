@@ -4,21 +4,19 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
 
-**Autorotate is a multi-platform zero-plaintext secret-rotation lifecycle engine**: a web control center (`autorotate.codes`) plus native iOS, macOS, and Android companion apps that keep credentials fresh across Infisical, files, Apple Keychain, Android Keystore, and generic webhooks — without ever persisting plaintext secrets.
+Autorotate helps configure credential rotation, deliver updated values to selected targets, and review the results.  This repository includes a web control center and native Apple and Android clients; connector support varies by provider and platform.
+
+[App overview](https://simplewithus.com/autorotate/) · [macOS beta on TestFlight](https://testflight.apple.com/join/5yDXA8Vk) · [Source releases](https://github.com/jaywedgeworth22/Autorotate/releases)
+
+The web control center can be run from source.  The iOS release under the current bundle identifier is being prepared; a public install link is not available yet.
 
 ## What it does
 
-- **Rotation pipeline** — every rotation runs a strict state machine:
-  `LOCK → ROTATE → PUSH → VERIFY → COMMIT → AUDIT`. Any failure aborts and
-  rolls back before new material is committed.
-- **Zero-plaintext rule** — secret material exists only in memory during a
-  rotation and is never written to disk, logs, or the database unencrypted.
-- **Targets** — Infisical projects, local/remote files, the Apple Keychain,
-  Android Keystore, and arbitrary HTTPS webhooks. See the connector capability matrix in
-  [docs/architecture.md](docs/architecture.md).
-- **Audit chain** — every run appends a hash-chained audit record, so the
-  history is tamper-evident.
-- **Mac agent** — placeholder stub only; no implementation exists.
+- **Rotation workflow** — coordinates rotation, delivery, verification, and audit steps.  Some connectors support API-based rotation; others require an imported value or a local generator.
+- **Configured targets** — includes Infisical, files, native credential stores, and HTTPS webhooks.  See the [connector capability matrix](docs/architecture.md) for implementation details and limitations.
+- **Credential handling** — uses encrypted configuration and native credential stores where implemented.  A configured file target writes a credential to that file, so its permissions and backups still matter.
+- **Run history** — records outcomes and supports checking a hash-chained audit history.  Failed or partial delivery may need operator follow-up; providers and targets do not share a universal rollback operation.
+- **Mac agent** — remains a placeholder; the native macOS app is a separate client.
 
 ## Monorepo layout
 
@@ -47,7 +45,7 @@ Autorotate/
 
 ## Quickstart
 
-### Web control center (`autorotate.codes`)
+### Web control center (local development)
 
 ```bash
 cd apps/web
@@ -112,17 +110,11 @@ unchanged unless you set them locally or in a deploy environment):
 | `SENTRY_ORG` | Sentry organization slug. | `jays-services` |
 | `SENTRY_PROJECT` | Sentry project slug the maps are uploaded to — must match the project the corresponding DSN reports events into, or the maps deobfuscate nothing. | `autorotate-web` |
 
-There is no Apple TestFlight/archive ship script in this repo yet (`apple/`
-only builds for the Simulator in CI and ships as zipped source via
-`release.yml`), so there is nowhere to hook a `sentry-cli debug-files
-upload` step for dSYMs today — add it to that script gated on
-`SENTRY_AUTH_TOKEN` the same way when one exists.
+The [TestFlight workflow](.github/workflows/testflight.yml) archives Apple builds when signing and App Store Connect setup are complete.  The existence of a workflow does not indicate that a build has been published; use the app overview above for available downloads.
 
 ## Releases
 
-Distributable artifacts (APK, IPA, `.pkg`) are published through
-[GitHub Releases](../../releases), never committed to the repository — see
-`.gitignore`.  A prior release (`1.0.0`) committed a debug-signed Android APK
+Release assets vary by version.  Check [GitHub Releases](https://github.com/jaywedgeworth22/Autorotate/releases) for the files attached to a specific release; a source archive is not an installable app.  Generated packages belong in release assets rather than source control — see `.gitignore`.  A prior release (`1.0.0`) committed a debug-signed Android APK
 and a development provisioning profile containing a hardware device UDID
 directly to this public repo; both were removed, but the signing identity and
 UDID were exposed in git history and **must be treated as public** going

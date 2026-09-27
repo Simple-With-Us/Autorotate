@@ -1,3 +1,5 @@
+- **2026-09-27 — CODEX — Completed on merge — Public overview accuracy (issue #261, board `1a63f9b2`, branch `codex/public-copy-20260927`).**  Scope: public README and coordination pointers; clarify supported behavior and access, remove private inventory references, and link the Simple With Us app catalog.  Validation: scoped copy/source review, linked-file checks, and `git diff --check`; hosted CI gates this merge.  Runtime and release workflows unchanged.
+
 # Autorotate Effort Log — cross-agent board
 Protocol: /Users/jay/apps/EFFORT-LOG-PROTOCOL.md (canonical). Live board: this file
 (mirror: docs/EFFORT-LOG.md in the repo). As of 2026-08-25.
