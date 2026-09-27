@@ -27,20 +27,30 @@ fi
 : "${IOS_DIST_P12_BASE64:?IOS_DIST_P12_BASE64 required}"
 : "${IOS_DIST_P12_PASSWORD:?IOS_DIST_P12_PASSWORD required}"
 
-SECRETS_DIR="${HOME}/.secrets"
-mkdir -p "$SECRETS_DIR"
-chmod 700 "$SECRETS_DIR"
-
-KEY_PATH="${ASC_KEY_PATH:-${SECRETS_DIR}/AuthKey.p8}"
+# The legacy value is a temporary handoff, not another persisted copy of
+# the ASC private key. Do not delete caller-owned ASC_KEY_PATH files.
+STAGED_KEY_DIR=""
+cleanup_signing_files() {
+  [[ -z "${P12_PATH:-}" ]] || rm -f "$P12_PATH"
+  [[ -z "${ENV_PATH:-}" ]] || rm -f "$ENV_PATH"
+  if [[ -n "$STAGED_KEY_DIR" ]]; then rm -rf "$STAGED_KEY_DIR"; fi
+}
+trap cleanup_signing_files EXIT
 if [[ -n "${ASC_KEY_PATH:-}" ]]; then
+  KEY_PATH="$ASC_KEY_PATH"
   [[ -s "$KEY_PATH" ]] || die "ASC_KEY_PATH has no key file"
+  [[ "$(stat -f '%Lp' "$KEY_PATH")" == 600 ]] || die "ASC_KEY_PATH must be mode 600"
 else
-  # Legacy local path: CI stages the key file before this helper runs.
+  STAGED_KEY_DIR="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/autorotate-asc-key.XXXXXXXX")"
+  chmod 700 "$STAGED_KEY_DIR"
+  KEY_PATH="$STAGED_KEY_DIR/AuthKey.p8"
   printf '%s\n' "$ASC_KEY_P8" > "$KEY_PATH"
 fi
-chmod 600 "$KEY_PATH"
+if [[ -n "$STAGED_KEY_DIR" ]]; then chmod 600 "$KEY_PATH"; fi
 
-ENV_PATH="${SECRETS_DIR}/appstore-connect.env"
+# Keep local credentials in the temporary handoff. The caller-owned file
+# path is never removed, but this env file is owned by this invocation.
+ENV_PATH="$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/autorotate-asc-env.XXXXXXXX")"
 {
   printf 'ASC_KEY_ID=%s\n' "$ASC_KEY_ID"
   printf 'ASC_ISSUER_ID=%s\n' "$ASC_ISSUER_ID"
@@ -48,8 +58,7 @@ ENV_PATH="${SECRETS_DIR}/appstore-connect.env"
 } > "$ENV_PATH"
 chmod 600 "$ENV_PATH"
 
-P12_PATH="${SECRETS_DIR}/ios-distribution.p12"
-trap 'rm -f "$P12_PATH"' EXIT
+P12_PATH="$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/autorotate-ios-dist.XXXXXXXX.p12")"
 printf '%s' "$IOS_DIST_P12_BASE64" | base64 --decode > "$P12_PATH"
 chmod 600 "$P12_PATH"
 
