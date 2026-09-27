@@ -4,6 +4,10 @@
 
 ## Current Handoff
 
+### 2026-09-27 CODEX — Manual Apple release preparation
+
+Issue #265, board `a7493915`: TestFlight Publish selects iOS or macOS explicitly, stages the ASC key through a private file, validates the archive bundle/build/profile/App Group, and then exports to ASC.  Synthetic credential/metadata tests pass; signing and upload are not yet verified.  The owner must replace the exposed shared key, configure this app's Infisical signing values and verify its profile before dispatch.  See `docs/rollouts/2026-09-27-manual-apple-release.md`.
+
 ### 2026-09-18 CURSOR — Effort Issues Sync Crons margin (FLEET-INFRA-CD)
 
 Daily `41 5 * * *` board mirror always succeeds; GitHub starts it 3.6-5.3h late so the 15-minute Sentry margin pages at 05:56Z.  Same override as ST #3194 / #3387 / #3389: `CHECKIN_MARGIN_OVERRIDES["Effort Issues Sync"] = 600`.  Cron unchanged.  Extra-ship no.  No Coolify.  Do not resolve CD on merge — wait for the next scheduled upsert of `ci-autorotate-effort-issues-sync`.  Rollout: `docs/rollouts/2026-09-18-effort-issues-sync-monitor-margin.md`.

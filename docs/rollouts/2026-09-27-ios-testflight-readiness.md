@@ -30,11 +30,11 @@ App Store Connect app now exists; no build or public invite has been published f
   bundle `codes.autorotate.ios`, primary locale `en-US`, and SKU `autorotate-ios`.
   User access is limited to existing account roles.  This resolves the app-record
   gate; it does not establish signing, an uploaded build, or external beta approval.
-- The existing `.github/workflows/testflight.yml` uses direct secret
-  environment injection.  Do not dispatch it with the current signing key.
-  Replace its credential handling with the fleet-approved file-loading path,
-  then scope upload to the new iOS app record and publish factual What to
-  Test.  Retain the legacy app and its working public beta during migration.
+- The manual `.github/workflows/testflight.yml` now stages signing material through the
+  private-file loader and selects one platform.  Do not dispatch before the owner
+  replaces the shared signing key and verifies the App Group/profile.  See
+  `2026-09-27-manual-apple-release.md` for required Infisical inputs and validation.
+  Retain the legacy app and its working public beta during migration.
 - Validate bundle ID, profile entitlements, signed archive, ASC build
   processing, export compliance, and beta review before publishing a new
   public TestFlight URL.  The old invite is not evidence for the new bundle.
