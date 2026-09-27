@@ -17,6 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Verify release credential and archive guards
+        run: |
+          bash -n scripts/ios-stage-asc-key.sh scripts/ios-appstore-gm-prepare.sh scripts/apple-testflight-release.sh
+          bash scripts/test-ios-stage-asc-key.sh
+          bash scripts/test-ios-gm-prepare-cleanup.sh
+          python3 scripts/test-apple-release.py
+
       - name: Setup Node 22
         uses: actions/setup-node@v7
         with:
