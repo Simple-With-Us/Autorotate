@@ -109,10 +109,14 @@ jobs:
               INFISICAL_TOKEN="$TOKEN" infisical secrets get "$name" \
                 --plain --silent --telemetry=false --expand=false \
                 --projectId="$INFISICAL_PROJECT_ID" --env=prod --path=/ \
-                2>/dev/null || true
-            )"
+                2>/dev/null
+            )" || {
+              echo "::error::Infisical fetch failed for required signing field $name." >&2
+              exit 1
+            }
             if [ -z "$val" ]; then
-              continue
+              echo "::error::Required signing field $name is empty in Infisical prod." >&2
+              exit 1
             fi
             if [[ "$val" == *$'\n'* || "$val" == *$'\r'* ]]; then
               echo "::error::Signing field $name must be single-line; correct Infisical formatting." >&2
@@ -155,7 +159,7 @@ jobs:
         run: |
           set +o xtrace
           security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" >/dev/null 2>&1 || true
-          rm -f "$RUNNER_TEMP/app-signing-kc-pass" "$HOME/.secrets/ios-distribution.p12" "$HOME/.secrets/appstore-connect.env"
+          rm -f "$RUNNER_TEMP/app-signing-kc-pass"
           if [[ "${ASC_KEY_PATH:-}" == "$RUNNER_TEMP"/asc-signing.*/AuthKey.p8 ]]; then
             rm -rf "$(dirname "$ASC_KEY_PATH")"
           fi
