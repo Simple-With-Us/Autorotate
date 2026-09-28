@@ -107,7 +107,7 @@ unchanged unless you set them locally or in a deploy environment):
 | Var | Meaning | Default |
 |---|---|---|
 | `SENTRY_AUTH_TOKEN` | Project-scoped Sentry auth token — never a DSN.  Presence is the on/off switch for the whole upload step (`@sentry/vite-plugin`). | unset (upload off) |
-| `SENTRY_ORG` | Sentry organization slug. | `jays-services` |
+| `SENTRY_ORG` | Sentry organization slug. | `simple-with-us` |
 | `SENTRY_PROJECT` | Sentry project slug the maps are uploaded to — must match the project the corresponding DSN reports events into, or the maps deobfuscate nothing. | `autorotate-web` |
 
 The [TestFlight workflow](.github/workflows/testflight.yml) archives Apple builds when signing and App Store Connect setup are complete.  The existence of a workflow does not indicate that a build has been published; use the app overview above for available downloads.

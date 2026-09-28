@@ -41,7 +41,7 @@ function resolveSentryRelease(): string {
 // Source-map upload target.  Same Sentry project the browser DSN
 // (VITE_SENTRY_DSN / Infisical SENTRY_DSN_WEB) reports events into, so
 // uploaded maps actually deobfuscate the stack traces that arrive there.
-const sentryOrg = process.env.SENTRY_ORG || "jays-services";
+const sentryOrg = process.env.SENTRY_ORG || "simple-with-us";
 const sentryProject = process.env.SENTRY_PROJECT || "autorotate-web";
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 const sentryRelease = resolveSentryRelease();
