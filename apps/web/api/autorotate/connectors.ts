@@ -423,11 +423,11 @@ const REQUIRED_FIELDS: Record<string, readonly string[]> = {
 
 const demoValues: Record<string, () => string> = {
   infisical: () => `st.${randomBytes(4).toString("hex")}.${randomBytes(16).toString("hex")}.${randomBytes(12).toString("hex")}`,
-  aws_iam: () => `AKIA${randomToken(16, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}`,
-  github: () => `ghp_${randomToken(36, BASE62)}`,
-  stripe: () => `sk_live_${randomToken(24, BASE62)}`,
-  openai: () => `sk-proj-${randomToken(48, `${BASE62}-_`)}`,
-  anthropic: () => `sk-ant-api03-${randomToken(40, `${BASE62}-_`)}`,
+  aws_iam: () => `AKIA${randomToken(16, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}`, // gitleaks:allow
+  github: () => `ghp_${randomToken(36, BASE62)}`, // gitleaks:allow
+  stripe: () => `sk_live_${randomToken(24, BASE62)}`, // gitleaks:allow
+  openai: () => `sk-proj-${randomToken(48, `${BASE62}-_`)}`, // gitleaks:allow
+  anthropic: () => `sk-ant-api03-${randomToken(40, `${BASE62}-_`)}`, // gitleaks:allow
   cloudflare: () => randomToken(40, BASE62),
   vercel: () => randomToken(24, BASE62),
   twilio: () => `SK${randomBytes(16).toString("hex")}`,
