@@ -3,10 +3,13 @@ import path from "node:path";
 import os from "node:os";
 import type { FileTargetConfig } from "@contracts/autorotate";
 
+import { fileRootSetting } from "./appSettings";
+
 // Format-aware secret file writer. All paths are sandboxed under
 // AUTOROTATE_FILE_ROOT (default: $HOME/app-engine/autorotate-files/ — falls back to
 // <cwd>/autorotate-files when that env-independent default isn't available).
-// Writes are atomic: tmp file in the same directory + rename.
+// The root comes from the Infisical settings cache (memory-only) — see
+// appSettings.  Writes are atomic: tmp file in the same directory + rename.
 
 export class FileTargetError extends Error {
   constructor(message: string) {
@@ -16,7 +19,8 @@ export class FileTargetError extends Error {
 }
 
 export function fileRoot(): string {
-  if (process.env.AUTOROTATE_FILE_ROOT) return process.env.AUTOROTATE_FILE_ROOT;
+  const configured = fileRootSetting();
+  if (configured) return configured;
   const home = os.homedir();
   return path.join(home || process.cwd(), "app-engine", "autorotate-files");
 }

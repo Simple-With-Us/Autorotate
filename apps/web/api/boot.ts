@@ -8,6 +8,26 @@ import { env } from "./lib/env";
 import { initSentryServer } from "./lib/sentry";
 import { adminToken } from "./auth";
 import { startScheduler } from "./autorotate/scheduler";
+import {
+  initAppSettings,
+  refreshSettings,
+  schedulerEnabledSetting,
+  schedulerIntervalMsSetting,
+  rateLimitWindowMsSetting,
+  rateLimitMaxSetting,
+} from "./autorotate/appSettings";
+
+// Infisical SOT: load every app-level setting into the in-memory cache before
+// anything else reads it.  In production this fails fast when required keys
+// are missing or the Infisical bootstrap credentials are absent.
+await initAppSettings();
+
+// On-demand settings refresh: `kill -SIGHUP <pid>`.
+process.on("SIGHUP", () => {
+  void refreshSettings().catch((err) => {
+    console.error("[app-settings] SIGHUP refresh failed:", (err as Error).message);
+  });
+});
 
 initSentryServer();
 
@@ -18,11 +38,11 @@ adminToken();
 // AR-19: the scheduler rotates live credentials.  Under `vite dev` it used to
 // start at import time, so a developer pointed at a shared database rotated
 // production secrets from their laptop.  Opt in explicitly outside production.
-if (env.isProduction || process.env.AUTOROTATE_SCHEDULER === "1") {
-  startScheduler();
+if (schedulerEnabledSetting()) {
+  startScheduler(schedulerIntervalMsSetting());
 } else {
   console.log(
-    "[autorotate scheduler] disabled outside production — set AUTOROTATE_SCHEDULER=1 to enable",
+    "[autorotate scheduler] disabled outside production — set AUTOROTATE_SCHEDULER=1 in Infisical to enable",
   );
 }
 
@@ -71,9 +91,10 @@ app.use("/api/*", bodyLimit({ maxSize: 1024 * 1024 }));
 
 // In-memory, per-process fixed-window rate limiter.  Deliberately simple: it
 // blunts scripted abuse of a single replica.  A multi-replica deployment
-// wanting a global budget needs a shared store or an edge rule.
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 300;
+// wanting a global budget needs a shared store or an edge rule.  Window and
+// max are tunable via Infisical (RATE_LIMIT_WINDOW_MS / RATE_LIMIT_MAX).
+const rateLimitWindowMs = rateLimitWindowMsSetting();
+const rateLimitMax = rateLimitMaxSetting();
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 
 /**
@@ -92,8 +113,8 @@ app.use("/api/*", async (c, next) => {
   const key = clientIpOf(c);
   const bucket = rateBuckets.get(key);
   if (!bucket || bucket.resetAt <= now) {
-    rateBuckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-  } else if (bucket.count >= RATE_LIMIT_MAX) {
+    rateBuckets.set(key, { count: 1, resetAt: now + rateLimitWindowMs });
+  } else if (bucket.count >= rateLimitMax) {
     const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
     c.header("Retry-After", String(retryAfter));
     return c.json({ error: "Too Many Requests" }, 429);

@@ -1,4 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { initAppSettings, __resetSettingsForTests } from "./appSettings";
+
+// Infisical SOT: crypto reads the encryption key from the settings cache.
+// Tests run in local-dev mode (no INFISICAL credentials) — the dev
+// passphrase fallback keeps the previous behavior.
+beforeAll(async () => {
+  delete process.env.INFISICAL_CLIENT_ID;
+  delete process.env.INFISICAL_CLIENT_SECRET;
+  await initAppSettings();
+});
+
+afterAll(() => {
+  __resetSettingsForTests();
+});
 import { encryptJson, decryptJson, fingerprint } from "./crypto";
 import {
   computeEntryHash,

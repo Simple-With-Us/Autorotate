@@ -1,5 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import { isDemoMode } from "./demo";
+import {
+  initAppSettings,
+  __setLocalSettingForTests,
+  __resetSettingsForTests,
+} from "./appSettings";
 import { getConnector } from "./connectors";
 import {
   canMintForTargets,
@@ -34,16 +39,24 @@ vi.mock("node:dns/promises", () => ({
   default: { lookup: dnsLookup },
 }));
 
-const demoFlag = process.env.AUTOROTATE_DEMO;
+// Infisical SOT: the demo flag comes from the settings cache (memory-only).
+// Tests run in local-dev mode and seed it via the test-only cache writer.
+beforeAll(async () => {
+  delete process.env.INFISICAL_CLIENT_ID;
+  delete process.env.INFISICAL_CLIENT_SECRET;
+  await initAppSettings();
+});
+
+afterAll(() => {
+  __resetSettingsForTests();
+});
 
 beforeEach(() => {
-  delete process.env.AUTOROTATE_DEMO;
+  __setLocalSettingForTests("AUTOROTATE_DEMO", undefined);
   dnsLookup.mockReset();
 });
 
 afterEach(() => {
-  if (demoFlag === undefined) delete process.env.AUTOROTATE_DEMO;
-  else process.env.AUTOROTATE_DEMO = demoFlag;
   vi.restoreAllMocks();
 });
 
@@ -65,7 +78,7 @@ describe("AR-02 — a connector with no credentials must not mint anything", () 
   });
 
   it("still simulates when demo mode is explicitly on", async () => {
-    process.env.AUTOROTATE_DEMO = "1";
+    __setLocalSettingForTests("AUTOROTATE_DEMO", "1");
     const result = await getConnector("stripe")!.rotate(null);
     expect(result.demo).toBe(true);
     expect(result.value).toMatch(/^sk_live_/);
@@ -76,14 +89,14 @@ describe("AR-03 — demo mode is opt-in", () => {
   it("is off when the variable is unset, empty, or falsy", () => {
     expect(isDemoMode()).toBe(false);
     for (const value of ["", " ", "0", "false", "no", "off", "yes"]) {
-      process.env.AUTOROTATE_DEMO = value;
+      __setLocalSettingForTests("AUTOROTATE_DEMO", value);
       expect(isDemoMode()).toBe(false);
     }
   });
 
   it("is on only for an explicit 1/true", () => {
     for (const value of ["1", "true", "TRUE", " true "]) {
-      process.env.AUTOROTATE_DEMO = value;
+      __setLocalSettingForTests("AUTOROTATE_DEMO", value);
       expect(isDemoMode()).toBe(true);
     }
   });
@@ -484,7 +497,7 @@ describe("F4 — real-mode Infisical delivery requires complete credentials", ()
   });
 
   it("simulates only when AUTOROTATE_DEMO is explicitly on", () => {
-    process.env.AUTOROTATE_DEMO = "1";
+    __setLocalSettingForTests("AUTOROTATE_DEMO", "1");
     expect(infisicalDeliveryMode({})).toBe("simulate");
     expect(
       infisicalDeliveryMode({ clientId: "a", clientSecret: "b", workspaceId: "c" }),
@@ -606,7 +619,7 @@ describe("mergePreservedTargetSecrets — edit must not wipe stored creds", () =
 // ── AR31-29 — testConnection fail-closed on missing config ───────
 describe("AR31-29 — testConnection fail-closed", () => {
   beforeEach(() => {
-    process.env.AUTOROTATE_DEMO = "0";
+    __setLocalSettingForTests("AUTOROTATE_DEMO", "0");
   });
 
   it("throws when config is missing in real mode", async () => {
@@ -644,7 +657,7 @@ describe("AR31-29 — testConnection fail-closed", () => {
   });
 
   it("still allows the simulated pass in demo mode regardless of fields", async () => {
-    process.env.AUTOROTATE_DEMO = "1";
+    __setLocalSettingForTests("AUTOROTATE_DEMO", "1");
     await expect(testConnection("stripe", {})).resolves.toMatch(/simulated/);
     await expect(testConnection("cloudflare", undefined as never)).resolves.toMatch(
       /simulated/,
@@ -666,7 +679,7 @@ describe("AR31-30 — webhook target push in real mode", () => {
   // we pin the fail-closed rule at the helper boundary so a future refactor
   // cannot quietly reintroduce the silent fallback.
   it("real mode refuses an empty-URL webhook configuration", () => {
-    process.env.AUTOROTATE_DEMO = "0";
+    __setLocalSettingForTests("AUTOROTATE_DEMO", "0");
     expect(() =>
       assertPushWebhooksReady([{ enabled: true, url: "" }]),
     ).toThrow(/has no URL/i);
@@ -685,7 +698,7 @@ describe("AR31-30 — webhook target push in real mode", () => {
   });
 
   it("demo mode is allowed to proceed with an empty URL (simulated)", () => {
-    process.env.AUTOROTATE_DEMO = "1";
+    __setLocalSettingForTests("AUTOROTATE_DEMO", "1");
     expect(() =>
       assertPushWebhooksReady([{ enabled: true, url: "" }]),
     ).not.toThrow();

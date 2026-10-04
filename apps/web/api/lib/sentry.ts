@@ -2,7 +2,9 @@
  * Sentry Node observability for Autorotate rotation jobs.
  *
  * Gated on SENTRY_DSN (falls back to VITE_SENTRY_DSN).  Inert when unset.
- * Infisical: SENTRY_DSN_WEB (and VITE_SENTRY_DSN) → Sentry project autorotate-web.
+ * Infisical SOT: the server Sentry settings (SENTRY_DSN, SENTRY_ENV,
+ * SENTRY_TRACES_SAMPLE_RATE) live in the Autorotate Infisical project and
+ * are served from the settings cache — see INFISICAL.md at the repo root.
  * Crash + cron for the 60s scheduler.  Metrics: rotation.success / rotation.fail.
  * Never attach secret material.
  *
@@ -13,6 +15,11 @@
  */
 
 import * as Sentry from "@sentry/node";
+import {
+  sentryDsnSetting,
+  sentryEnvSetting,
+  sentryTracesSampleRateSetting,
+} from "../autorotate/appSettings";
 
 let initialized = false;
 
@@ -87,15 +94,15 @@ export function scrubBreadcrumb(
 export function initSentryServer(): void {
   if (initialized) return;
 
-  const dsn = (process.env.SENTRY_DSN || process.env.VITE_SENTRY_DSN || "").trim();
+  // Infisical SOT: DSN, environment and sample rate come from the settings
+  // cache (memory-only).  The DSN falls back to the build-time VITE_SENTRY_DSN
+  // value when unset — see appSettings.sentryDsnSetting.
+  const dsn = sentryDsnSetting();
   if (!dsn) return;
 
-  const env =
-    (process.env.SENTRY_ENV || process.env.VITE_SENTRY_ENV || process.env.NODE_ENV || "production").trim();
+  const env = sentryEnvSetting();
 
-  const tracesSampleRate = Number(
-    (process.env.SENTRY_TRACES_SAMPLE_RATE || "0.2").trim(),
-  );
+  const tracesSampleRate = sentryTracesSampleRateSetting();
 
   Sentry.init({
     dsn,

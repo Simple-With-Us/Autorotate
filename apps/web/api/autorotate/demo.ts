@@ -3,11 +3,11 @@
 // "false" or anything else means real mode, so a production deploy that
 // forgets the variable fails closed instead of silently faking every
 // rotation.  The marketing sandbox must set AUTOROTATE_DEMO=1 explicitly.
+// Read from the Infisical settings cache (memory-only) — see appSettings.
+import { isDemoModeSetting } from "./appSettings";
+
 export function isDemoMode(): boolean {
-  const flag = process.env.AUTOROTATE_DEMO;
-  if (!flag) return false;
-  const normalized = flag.trim().toLowerCase();
-  return normalized === "1" || normalized === "true";
+  return isDemoModeSetting();
 }
 
 /** Prefix every simulated step message with [demo] (hard requirement). */

@@ -5,31 +5,41 @@ import {
   randomBytes,
   scryptSync,
 } from "node:crypto";
+import {
+  encryptionKeySetting,
+  isProduction,
+  settingsVersion,
+} from "./appSettings";
 
 // AES-256-GCM encryption for connector admin credentials at rest.
-// Key comes from AUTOROTATE_ENC_KEY: either a 64-char hex key or an arbitrary
-// passphrase (derived with scrypt).  The development passphrase below keeps
-// local play working — it is published in this repository, so production
-// refuses to start without a real key (AR-04, enforced here as well as in
-// lib/env.ts so a bundle that skips env validation still fails closed).
+// Key comes from the Infisical settings cache (AUTOROTATE_ENC_KEY): either a
+// 64-char hex key or an arbitrary passphrase (derived with scrypt).  The
+// development passphrase below keeps local play working — it is published in
+// this repository, so production refuses to start without a real key (AR-04,
+// enforced here as well as in appSettings.requireSetting so a bundle that
+// skips settings validation still fails closed).
 
 const DEV_PASSPHRASE = "autorotate-demo-passphrase";
 const SCRYPT_SALT = "autorotate-connector-config-v1";
 
 let cachedKey: Buffer | null = null;
+let cachedVersion = -1;
 
 function getKey(): Buffer {
-  if (cachedKey) return cachedKey;
-  const configured = process.env.AUTOROTATE_ENC_KEY;
-  const isProduction = process.env.NODE_ENV === "production";
+  // A rotated AUTOROTATE_ENC_KEY must take effect: the derived key is cached
+  // only for the current settings version and re-derived after any refresh
+  // or write-through.
+  const version = settingsVersion();
+  if (cachedKey && version === cachedVersion) return cachedKey;
+  const configured = encryptionKeySetting();
   if (!configured) {
-    if (isProduction) {
-      throw new Error(
-        "AUTOROTATE_ENC_KEY is required in production — stored connector admin credentials must not be protected by a published development passphrase",
-      );
+    if (isProduction()) {
+      // encryptionKeySetting() already threw above; unreachable defense.
+      throw new Error("AUTOROTATE_ENC_KEY is required in production");
     }
     // Non-production only: the published dev passphrase keeps local play working.
     cachedKey = scryptSync(DEV_PASSPHRASE, SCRYPT_SALT, 32);
+    cachedVersion = version;
     return cachedKey;
   }
   if (/^[0-9a-fA-F]{64}$/.test(configured)) {
@@ -42,12 +52,13 @@ function getKey(): Buffer {
       );
     }
     cachedKey = buf;
+    cachedVersion = version;
     return cachedKey;
   }
   // Not a full 64-char hex key: treated as a passphrase (scrypt-derived).  In
   // production a too-short value is almost always a truncated/typo'd hex key or
   // a weak passphrase, so fail closed rather than silently stretch it.
-  if (isProduction) {
+  if (isProduction()) {
     if (/^[0-9a-fA-F]+$/.test(configured) && configured.length < 64) {
       throw new Error(
         "AUTOROTATE_ENC_KEY looks like a truncated hex key (fewer than 64 hex chars) — provide a full 32-byte key from `openssl rand -hex 32`",
@@ -60,6 +71,7 @@ function getKey(): Buffer {
     }
   }
   cachedKey = scryptSync(configured, SCRYPT_SALT, 32);
+  cachedVersion = version;
   return cachedKey;
 }
 

@@ -58,6 +58,13 @@ import {
 import { requestBaseUrl } from "../lib/request-url";
 import { env } from "../lib/env";
 import {
+  publicBaseUrlSetting,
+  refreshSettings,
+  setSetting,
+  settingsInventory,
+  getSetting,
+} from "../autorotate/appSettings";
+import {
   rotateSecret,
   checkSecretDrift,
   appendAudit,
@@ -954,6 +961,88 @@ export const workspaceRouter = createRouter({
       return maskAlertConfig(next);
     }),
 
+  // ── Infisical SOT admin surface (2026-10-03) ──────────────────
+  // App-level settings live in the Autorotate Infisical project (see
+  // INFISICAL.md).  These endpoints are admin-only (every procedure in this
+  // file is a protectedProcedure) and never return secret VALUES — the
+  // inventory reports names + configured/unset only.
+  settingsInventory: protectedProcedure.query(() => settingsInventory()),
+
+  // Re-read Infisical into the in-memory cache on demand.  Background
+  // refresh failures keep serving last-known-good; this mutation surfaces
+  // the error to the admin instead.
+  reloadSettings: protectedProcedure.mutation(async () => {
+    await refreshSettings();
+    await appendAudit(ACTOR, "workspace.settings_reloaded", null, {});
+    return { ok: true, keys: settingsInventory().length };
+  }),
+
+  // Admin write-through for tunable (non-secret) knobs: persists to
+  // Infisical FIRST, then updates the cache.  A failed Infisical write
+  // fails the mutation.  Secrets (admin token, encryption key, DB URL,
+  // Sentry DSN, alert webhook config) are deliberately NOT settable here —
+  // rotate those in the Infisical dashboard.
+  setAppSetting: protectedProcedure
+    .input(
+      z.object({
+        key: z.enum([
+          "AUTOROTATE_DEMO",
+          "AUTOROTATE_SCHEDULER",
+          "SCHEDULER_INTERVAL_MS",
+          "SESSION_TTL_MS",
+          "RATE_LIMIT_WINDOW_MS",
+          "RATE_LIMIT_MAX",
+          "ALERT_TIMEOUT_MS",
+          "OVERDUE_DIGEST_INTERVAL_MS",
+          "SETTINGS_REFRESH_INTERVAL_MS",
+          "AUTOROTATE_FILE_ROOT",
+          "AUTOROTATE_PUBLIC_BASE_URL",
+          "SENTRY_ENV",
+          "SENTRY_TRACES_SAMPLE_RATE",
+        ]),
+        value: z.string().max(2048),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const numericKeys = [
+        "SCHEDULER_INTERVAL_MS",
+        "SESSION_TTL_MS",
+        "RATE_LIMIT_WINDOW_MS",
+        "RATE_LIMIT_MAX",
+        "ALERT_TIMEOUT_MS",
+        "OVERDUE_DIGEST_INTERVAL_MS",
+        "SETTINGS_REFRESH_INTERVAL_MS",
+        "SENTRY_TRACES_SAMPLE_RATE",
+      ];
+      if (numericKeys.includes(input.key)) {
+        const parsed = Number(input.value.trim());
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `${input.key} must be a positive number`,
+          });
+        }
+      }
+      const flagKeys = ["AUTOROTATE_DEMO", "AUTOROTATE_SCHEDULER"];
+      if (flagKeys.includes(input.key)) {
+        const normalized = input.value.trim().toLowerCase();
+        if (!["0", "1", "true", "false", ""].includes(normalized)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `${input.key} must be "1"/"true", "0"/"false", or empty`,
+          });
+        }
+      }
+      const before = getSetting(input.key) ?? "";
+      await setSetting(input.key, input.value);
+      await appendAudit(ACTOR, "workspace.setting_updated", null, {
+        key: input.key,
+        // Never log the value — even non-secret knobs deserve the habit.
+        hadValue: before !== "",
+      });
+      return { ok: true, key: input.key };
+    }),
+
   testAlert: protectedProcedure
     .input(z.object({ service: z.enum(["slack", "discord"]) }))
     .mutation(async ({ input }) => {
@@ -994,7 +1083,7 @@ export const pairingRouter = createRouter({
     // XFF-derived value for self-hosted deployments that already
     // document the trust boundary.
     const baseUrl =
-      process.env.AUTOROTATE_PUBLIC_BASE_URL?.replace(/\/+$/, "") ||
+      publicBaseUrlSetting().replace(/\/+$/, "") ||
       requestBaseUrl(ctx.req);
     return {
       version: 1,
