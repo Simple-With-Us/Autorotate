@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,25 +7,43 @@ import {
   writeFileTarget,
   readFileTarget,
 } from "./files";
+import {
+  initAppSettings,
+  __setLocalSettingForTests,
+  __resetSettingsForTests,
+} from "./appSettings";
 
 // AR31-31 (2026-09-20): sandbox must refuse symlinks that point outside
 // the configured root, even when the lexical path stays inside the
 // sandbox.
+//
+// Infisical SOT: the file root comes from the settings cache (memory-only).
+// Tests run in local-dev mode and seed it via the test-only cache writer.
 
 let root: string;
 let outsideDir: string;
 let outsideFile: string;
+
+beforeAll(async () => {
+  delete process.env.INFISICAL_CLIENT_ID;
+  delete process.env.INFISICAL_CLIENT_SECRET;
+  await initAppSettings();
+});
+
+afterAll(() => {
+  __resetSettingsForTests();
+});
 
 beforeEach(async () => {
   root = await fs.mkdtemp(path.join(os.tmpdir(), "ar-sandbox-"));
   outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "ar-outside-"));
   outsideFile = path.join(outsideDir, "secret.txt");
   await fs.writeFile(outsideFile, "outside-content\n", "utf8");
-  process.env.AUTOROTATE_FILE_ROOT = root;
+  __setLocalSettingForTests("AUTOROTATE_FILE_ROOT", root);
 });
 
 afterEach(async () => {
-  delete process.env.AUTOROTATE_FILE_ROOT;
+  __setLocalSettingForTests("AUTOROTATE_FILE_ROOT", undefined);
   await fs.rm(root, { recursive: true, force: true });
   await fs.rm(outsideDir, { recursive: true, force: true });
 });

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, Send, Slack, MessageSquare } from 'lucide-react'
+import { Bell, Send, Slack, MessageSquare, RefreshCw } from 'lucide-react'
 import { trpc } from '@/providers/trpc'
 import { Modal, toastError, toastSuccess } from '@/components/primitives'
 
@@ -8,6 +8,13 @@ import { Modal, toastError, toastSuccess } from '@/components/primitives'
  * credential, so the server only returns a masked form and this modal can
  * never read one back.  Leaving a field empty keeps the stored webhook;
  * "Remove" clears it.
+ *
+ * The Server Settings section below is the admin surface for the Infisical
+ * sole-source-of-truth settings (see INFISICAL.md at the repo root): it
+ * shows the key inventory (names + configured/unset — never values) and
+ * offers an on-demand cache reload.  Tunable knobs are changed via
+ * `workspace.setAppSetting` (write-through to Infisical); secrets rotate in
+ * the Infisical dashboard.
  */
 export function AlertSettingsModal({
   open,
@@ -53,6 +60,18 @@ export function AlertSettingsModal({
       else toastError('Delivery error', data.message)
     },
     onError: (err: { message: string }) => toastError('Test failed', err.message),
+  })
+
+  const inventoryQuery = trpc.workspace.settingsInventory.useQuery(undefined, {
+    enabled: open,
+  })
+
+  const reloadMut = trpc.workspace.reloadSettings.useMutation({
+    onSuccess: async (data: { ok: boolean; keys: number }) => {
+      toastSuccess('Settings reloaded', `Server settings refreshed from Infisical (${data.keys} keys)`)
+      await utils.workspace.settingsInventory.invalidate()
+    },
+    onError: (err: { message: string }) => toastError('Reload failed', err.message),
   })
 
   const handleSave = () => {
@@ -222,6 +241,44 @@ export function AlertSettingsModal({
               Notify when secret exceeds rotation policy deadline
             </label>
           </div>
+        </div>
+
+        {/* Server Settings (Infisical SOT) */}
+        <div className="space-y-2 rounded-card border border-line-subtle bg-panel p-3.5">
+          <div className="flex items-center justify-between">
+            <div className="text-label text-ink-muted">Server Settings (Infisical)</div>
+            <button
+              type="button"
+              onClick={() => reloadMut.mutate()}
+              disabled={reloadMut.isPending}
+              className="flex items-center gap-1 text-mono-s text-spin hover:underline disabled:opacity-50"
+            >
+              <RefreshCw className="size-3" />
+              {reloadMut.isPending ? 'Reloading…' : 'Reload Settings'}
+            </button>
+          </div>
+          <p className="text-xs text-ink-secondary">
+            App-level settings live in the Autorotate Infisical project and are served from
+            the server&apos;s in-memory cache.  Reload re-reads Infisical on demand; values
+            are never shown here.
+          </p>
+          {inventoryQuery.data && (
+            <ul className="grid grid-cols-2 gap-x-3 gap-y-1">
+              {inventoryQuery.data.map(
+                ({ key, configured }: { key: string; configured: boolean }) => (
+                  <li key={key} className="flex items-center gap-1.5 text-mono-s">
+                    <span
+                      className={configured ? 'text-emerald-400' : 'text-ink-muted'}
+                      aria-label={configured ? 'configured' : 'unset'}
+                    >
+                      ●
+                    </span>
+                    <span className="truncate text-ink-secondary">{key}</span>
+                  </li>
+                ),
+              )}
+            </ul>
+          )}
         </div>
 
         {/* Actions */}

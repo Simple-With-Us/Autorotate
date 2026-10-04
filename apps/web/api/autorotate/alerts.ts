@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import { getDb } from "../queries/connection";
 import { workspaceSettings } from "@db/schema";
 import {
@@ -8,13 +8,27 @@ import {
   type WorkspaceAlertUpdateInput,
 } from "@contracts/autorotate";
 import { safeFetch } from "./netguard";
+import {
+  alertConfigJsonSetting,
+  alertTimeoutMsSetting,
+  overdueDigestIntervalMsSetting,
+  setSetting,
+} from "./appSettings";
 
 // ── Workspace alerts (AR-16) ────────────────────────────────────
-// Alert configuration used to live in a module-level object that no replica
-// shared, no restart survived, and the rotation engine never read — so no
-// alert had ever fired outside the Test button.  It now lives in a single
-// workspaceSettings row and rotateSecret calls notifyRunOutcome on every
-// completed non-dry run.
+// Infisical SOT (2026-10-03): the alert configuration is app-level config
+// and now lives in the Infisical settings cache as ALERT_CONFIG_JSON
+// (webhook URLs are secret-bearing, which is exactly what Infisical is
+// for).  Reads are memory-only — the rotation engine previously hit MySQL
+// on every completed run to fetch this; now it costs nothing.  Admin saves
+// are write-through: Infisical FIRST, then the cache; a failed Infisical
+// write fails the save so the two can never diverge silently.
+//
+// One-shot migration: the config used to live in a workspaceSettings row.
+// On first read, when ALERT_CONFIG_JSON is unset but a DB row exists, the
+// row is migrated through the write-through path (so Infisical becomes the
+// source of truth immediately) and logged loudly.  The table is otherwise
+// untouched — no schema migration needed.
 //
 // Payloads carry the secret NAME, run status, run id and a timestamp.  Never
 // a value, never a fingerprint: an alert webhook is a third-party endpoint
@@ -28,44 +42,90 @@ export const DEFAULT_ALERT_CONFIG: WorkspaceAlertConfig = {
   notifyOnOverdue: true,
 };
 
-const ALERT_TIMEOUT_MS = 10_000;
+let migrationAttempted = false;
 
-export async function readAlertConfig(): Promise<WorkspaceAlertConfig> {
-  const db = getDb();
-  const [row] = await db
-    .select()
-    .from(workspaceSettings)
-    .orderBy(desc(workspaceSettings.id))
-    .limit(1);
-  const parsed = workspaceAlertConfigSchema.safeParse(row?.alertsJson ?? {});
-  return parsed.success ? parsed.data : { ...DEFAULT_ALERT_CONFIG };
+/** Test-only: allow the one-shot migration to run again. */
+export function __resetAlertMigrationForTests(): void {
+  migrationAttempted = false;
 }
 
+function parseAlertConfig(raw: string | undefined): WorkspaceAlertConfig {
+  if (!raw) return { ...DEFAULT_ALERT_CONFIG };
+  try {
+    const parsed = workspaceAlertConfigSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : { ...DEFAULT_ALERT_CONFIG };
+  } catch {
+    return { ...DEFAULT_ALERT_CONFIG };
+  }
+}
+
+/**
+ * Read the alert config from the Infisical settings cache (memory-only).
+ * Performs the one-shot DB migration on first call when needed.
+ */
+export async function readAlertConfig(): Promise<WorkspaceAlertConfig> {
+  const raw = alertConfigJsonSetting();
+  if (raw) return parseAlertConfig(raw);
+  if (!migrationAttempted) {
+    migrationAttempted = true;
+    const migrated = await migrateAlertConfigFromDb();
+    if (migrated) return migrated;
+  }
+  return { ...DEFAULT_ALERT_CONFIG };
+}
+
+/**
+ * Write-through save: Infisical FIRST (via the settings service), cache
+ * updated by the settings service itself.  Rejects when the Infisical
+ * write fails — the cache is left untouched.
+ */
 export async function writeAlertConfig(
   patch: WorkspaceAlertUpdateInput,
 ): Promise<WorkspaceAlertConfig> {
-  const db = getDb();
-  const [row] = await db
-    .select()
-    .from(workspaceSettings)
-    .orderBy(desc(workspaceSettings.id))
-    .limit(1);
-  const current = workspaceAlertConfigSchema.safeParse(row?.alertsJson ?? {});
-  const next: WorkspaceAlertConfig = {
-    ...(current.success ? current.data : DEFAULT_ALERT_CONFIG),
-    ...patch,
-  };
-  if (row) {
-    await db
-      .update(workspaceSettings)
-      .set({ alertsJson: next as never, updatedAt: new Date() })
-      .where(eq(workspaceSettings.id, row.id));
-  } else {
-    await db
-      .insert(workspaceSettings)
-      .values({ alertsJson: next as never, updatedAt: new Date() });
-  }
+  const current = await readAlertConfig();
+  const next: WorkspaceAlertConfig = { ...current, ...patch };
+  await setSetting("ALERT_CONFIG_JSON", JSON.stringify(next));
   return next;
+}
+
+/**
+ * One-shot migration of the legacy workspaceSettings row into Infisical.
+ * Returns the migrated config, or null when there is nothing to migrate.
+ * Runs at most once per process.
+ */
+async function migrateAlertConfigFromDb(): Promise<WorkspaceAlertConfig | null> {
+  let row: { alertsJson: unknown } | undefined;
+  try {
+    const db = getDb();
+    [row] = await db
+      .select()
+      .from(workspaceSettings)
+      .orderBy(desc(workspaceSettings.id))
+      .limit(1);
+  } catch (err) {
+    // The DB may be unreachable or the table absent (fresh deploy): that is
+    // fine — there is simply nothing to migrate.
+    console.warn(
+      "[autorotate alerts] legacy alert-config migration skipped (DB read failed):",
+      (err as Error).message,
+    );
+    return null;
+  }
+  const parsed = workspaceAlertConfigSchema.safeParse(row?.alertsJson ?? {});
+  if (!row || !parsed.success) return null;
+  try {
+    await setSetting("ALERT_CONFIG_JSON", JSON.stringify(parsed.data));
+    console.log(
+      "[autorotate alerts] migrated workspace alert config from workspaceSettings to Infisical (ALERT_CONFIG_JSON).",
+    );
+    return parsed.data;
+  } catch (err) {
+    console.error(
+      "[autorotate alerts] legacy alert-config migration failed:",
+      (err as Error).message,
+    );
+    return { ...DEFAULT_ALERT_CONFIG };
+  }
 }
 
 /** scheme + host + "/…" + the last 4 characters, or null when unset. */
@@ -106,7 +166,7 @@ export async function postAlert(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(ALERT_TIMEOUT_MS),
+    signal: AbortSignal.timeout(alertTimeoutMsSetting()),
   });
   if (!res.ok) throw new Error(`${service} webhook returned HTTP ${res.status}`);
 }
@@ -165,11 +225,11 @@ async function deliver(config: WorkspaceAlertConfig, text: string): Promise<void
 }
 
 // ── Overdue digest ──────────────────────────────────────────────
-// One summary per process per 6h.  Module-level state, so a multi-replica
+// One summary per process per window (window length from the settings cache:
+// OVERDUE_DIGEST_INTERVAL_MS).  Module-level state, so a multi-replica
 // deployment sends at most one digest per replica per window — acceptable for
 // a nag, and the honest alternative (a shared store) is not worth a table.
 
-export const OVERDUE_NOTIFY_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let lastOverdueNotifyAt = 0;
 
 export function shouldSendOverdueDigest(
@@ -177,7 +237,7 @@ export function shouldSendOverdueDigest(
   now: number = Date.now(),
 ): boolean {
   if (overdueCount <= 0) return false;
-  return now - lastOverdueNotifyAt >= OVERDUE_NOTIFY_INTERVAL_MS;
+  return now - lastOverdueNotifyAt >= overdueDigestIntervalMsSetting();
 }
 
 export function resetOverdueDigestThrottle(): void {

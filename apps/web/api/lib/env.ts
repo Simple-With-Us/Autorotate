@@ -1,22 +1,33 @@
 import "dotenv/config";
+import {
+  isProduction,
+  appIdSetting,
+  appSecretSetting,
+  databaseUrlSetting,
+} from "../autorotate/appSettings";
 
-function required(name: string): string {
-  const value = process.env[name];
-  if (!value && process.env.NODE_ENV === "production") {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value ?? "";
-}
+// ── Boot-time environment surface ───────────────────────────────────
+// Infisical SOT (2026-10-03): app-level settings live in the Autorotate
+// Infisical project and are served from an in-memory cache (see
+// api/autorotate/appSettings.ts and INFISICAL.md).  This module is the thin
+// compatibility surface over that cache for values the server needs early.
+//
+// `isProduction` still reads process.env synchronously: NODE_ENV is
+// deployment bootstrap (like PORT and INFISICAL_CLIENT_ID/SECRET), not an
+// app-level setting.  Every other value below is a memory-only cache read —
+// initAppSettings() must have run at boot before anything touches them.
 
 export const env = {
-  appId: required("APP_ID"),
-  appSecret: required("APP_SECRET"),
-  isProduction: process.env.NODE_ENV === "production",
-  databaseUrl: required("DATABASE_URL"),
-  // AR-01: the console has no other credential. A production deploy without
-  // it would boot an unauthenticated secrets manager, so refuse to start.
-  adminToken: required("AUTOROTATE_ADMIN_TOKEN"),
-  // AR-04: without it, stored connector admin credentials fall back to a
-  // passphrase published in this repository.
-  encryptionKey: required("AUTOROTATE_ENC_KEY"),
+  get appId(): string {
+    return appIdSetting();
+  },
+  get appSecret(): string {
+    return appSecretSetting();
+  },
+  get isProduction(): boolean {
+    return isProduction();
+  },
+  get databaseUrl(): string {
+    return databaseUrlSetting();
+  },
 };

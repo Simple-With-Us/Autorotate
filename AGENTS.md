@@ -112,6 +112,30 @@ interface listed below. Never "drive-by" edit another module.
    in `apps/web/db/schema.ts` must match the referenced primary key type
    (`bigint`, `unsigned`); mismatched types break MySQL migrations.
 
+## Infisical sole source of truth (owner directive 2026-10-03)
+
+App-level settings (secrets, env config, tunable knobs) live in the
+`Autorotate` Infisical project — full policy, key inventory, and the
+per-user boundary in [INFISICAL.md](INFISICAL.md).  Read it before touching
+any configuration path.
+
+- Web server: `apps/web/api/autorotate/appSettings.ts` (`initAppSettings()` at
+  boot, memory-only reads after, background refresh, write-through admin
+  saves).  Built on the fleet-shared `createInfisicalSettings` from
+  `@jaywedgeworth22/congress-trading-shared`.
+- **Never** add a new direct `process.env` / config-file read for a setting
+  that belongs in Infisical — add the key to `SETTING_KEYS` and read it from
+  the settings cache instead.  `NODE_ENV`, `PORT`, and
+  `INFISICAL_CLIENT_ID`/`INFISICAL_CLIENT_SECRET` are deployment bootstrap,
+  not app settings, and stay on `process.env`.
+- **Never** migrate per-user data (managed secrets, connector admin
+  credentials, target configs, rotation policies, companion-app device
+  settings) into Infisical.  Move configuration only — never managed
+  credential values.
+- Admin settings surface is admin-gated (`protectedProcedure`) and
+  write-through (Infisical first, then cache); secrets rotate in the
+  Infisical dashboard, never through the app.
+
 ## Workflow protocol for agents
 
 1. **Read** `docs/architecture.md` before writing any code.

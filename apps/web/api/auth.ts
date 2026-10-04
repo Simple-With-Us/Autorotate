@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { env } from "./lib/env";
+import { adminTokenSetting, sessionTtlMsSetting } from "./autorotate/appSettings";
 
 // ── Console authentication (AR-01) ──────────────────────────────
 // One operator credential (AUTOROTATE_ADMIN_TOKEN) exchanged for a stateless
@@ -15,27 +16,35 @@ import { env } from "./lib/env";
 // CSRF token is issued.  Adding CORS later means adding CSRF tokens.
 
 export const SESSION_COOKIE = "autorotate_session";
-export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+/**
+ * Session lifetime in milliseconds.  Read from the settings cache
+ * (SETTINGS: SESSION_TTL_MS) — memory-only, never a network call.
+ */
+export function sessionTtlMs(): number {
+  return sessionTtlMsSetting();
+}
 const SESSION_DOMAIN_SEPARATOR = "autorotate-session:";
 
 let ephemeralDevToken: string | null = null;
 
 /**
- * The operator credential.  Required in production (lib/env.ts throws at
- * import time when it is missing).  In development an ephemeral random token
- * is minted once per process and printed once — never a fixed default, so a
- * forgotten variable cannot become a shipped password.
+ * The operator credential.  In production it is required in the Infisical
+ * settings cache (adminTokenSetting() throws naming the key when it is
+ * missing).  In development an ephemeral random token is minted once per
+ * process and printed once — never a fixed default, so a forgotten variable
+ * cannot become a shipped password.
  */
 export function adminToken(): string {
-  const configured = process.env.AUTOROTATE_ADMIN_TOKEN;
+  const configured = adminTokenSetting();
   if (configured) return configured;
   if (env.isProduction) {
-    throw new Error("Missing required environment variable: AUTOROTATE_ADMIN_TOKEN");
+    // adminTokenSetting() already threw above; this is unreachable defense.
+    throw new Error("Missing required app setting: AUTOROTATE_ADMIN_TOKEN");
   }
   if (!ephemeralDevToken) {
     ephemeralDevToken = randomBytes(24).toString("hex");
     console.log(
-      `[autorotate] dev admin token: ${ephemeralDevToken}  (ephemeral — set AUTOROTATE_ADMIN_TOKEN to pin it)`,
+      `[autorotate] dev admin token: ${ephemeralDevToken}  (ephemeral — set AUTOROTATE_ADMIN_TOKEN in Infisical to pin it)`,
     );
   }
   return ephemeralDevToken;
@@ -58,9 +67,9 @@ function signExpiry(exp: number): string {
     .digest("hex");
 }
 
-/** Mint a `exp.sig` session value valid for SESSION_TTL_MS from `now`. */
+/** Mint a `exp.sig` session value valid for sessionTtlMs() from `now`. */
 export function createSession(now: number = Date.now()): string {
-  const exp = now + SESSION_TTL_MS;
+  const exp = now + sessionTtlMs();
   return `${exp}.${signExpiry(exp)}`;
 }
 
@@ -100,7 +109,7 @@ function cookieAttributes(maxAgeSeconds: number): string[] {
 }
 
 export function sessionCookie(value: string): string {
-  return [`${SESSION_COOKIE}=${value}`, ...cookieAttributes(Math.floor(SESSION_TTL_MS / 1000))].join(
+  return [`${SESSION_COOKIE}=${value}`, ...cookieAttributes(Math.floor(sessionTtlMs() / 1000))].join(
     "; ",
   );
 }
